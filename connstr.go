@@ -11,6 +11,7 @@ import (
 
 const (
 	DefaultHttpPort = 8091
+	DefaultHttpsPort = 18091
 	DefaultMemdPort = 11210
 	DefaultSslMemdPort = 11207
 )
@@ -54,6 +55,7 @@ func Parse(connStr string) (out ConnSpec, err error) {
 		case "couchbase":
 		case "couchbases":
 		case "http":
+		case "https":
 		default:
 			err = errors.New("bad scheme")
 			return
@@ -158,6 +160,11 @@ func Resolve(connSpec ConnSpec) (out ResolvedConnSpec, err error) {
 		hasExplicitScheme = true
 		isHttpScheme = true
 		useSsl = false
+	case "https":
+		defaultPort = DefaultHttpsPort
+		hasExplicitScheme = true
+		isHttpScheme = true
+		useSsl = true
 	case "":
 		defaultPort = DefaultHttpPort
 		hasExplicitScheme = false
