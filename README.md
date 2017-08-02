@@ -38,3 +38,12 @@ type ResolvedConnSpec struct {
 	Options map[string][]string
 }
 ```
+
+## License
+Copyright 2016 Couchbase Inc.
+
+Licensed under the Apache License, Version 2.0.
+
+See
+[LICENSE](https://github.com/couchbaselabs/gocbconnstr/blob/master/LICENSE)
+for further details.
