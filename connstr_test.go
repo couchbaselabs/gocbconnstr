@@ -115,12 +115,12 @@ func checkSpec(t *testing.T, connStr string, expectedSpec ConnSpec,
 }
 
 func TestParseBasic(t *testing.T) {
-	checkSpec(t, "couchbase://1.2.3.4", ConnSpec {
+	checkSpec(t, "couchbase://1.2.3.4", ConnSpec{
 		Scheme: "couchbase",
 		Addresses: []Address{
 			{"1.2.3.4", -1}},
 	}, []Address{
-		{"1.2.3.4",  DefaultMemdPort},
+		{"1.2.3.4", DefaultMemdPort},
 	}, []Address{
 		{"1.2.3.4", DefaultHttpPort},
 	}, false, true, true)
@@ -130,43 +130,43 @@ func TestParseBasic(t *testing.T) {
 		t.Fatalf("Expected error for bad scheme")
 	}
 
-	checkSpec(t, "couchbase://", ConnSpec {
+	checkSpec(t, "couchbase://", ConnSpec{
 		Scheme: "couchbase",
 	}, []Address{
-		{"127.0.0.1",  DefaultMemdPort},
+		{"127.0.0.1", DefaultMemdPort},
 	}, []Address{
 		{"127.0.0.1", DefaultHttpPort},
 	}, false, true, true)
 
-	checkSpec(t, "couchbase://?", ConnSpec {
+	checkSpec(t, "couchbase://?", ConnSpec{
 		Scheme: "couchbase",
 	}, []Address{
-		{"127.0.0.1",  DefaultMemdPort},
+		{"127.0.0.1", DefaultMemdPort},
 	}, []Address{
 		{"127.0.0.1", DefaultHttpPort},
 	}, false, true, false)
 
-	checkSpec(t, "1.2.3.4", ConnSpec {
+	checkSpec(t, "1.2.3.4", ConnSpec{
 		Addresses: []Address{
 			{"1.2.3.4", -1},
 		},
 	}, []Address{
-		{"1.2.3.4",  DefaultMemdPort},
+		{"1.2.3.4", DefaultMemdPort},
 	}, []Address{
 		{"1.2.3.4", DefaultHttpPort},
 	}, false, true, true)
 
-	checkSpec(t, "1.2.3.4:8091", ConnSpec {
+	checkSpec(t, "1.2.3.4:8091", ConnSpec{
 		Addresses: []Address{
 			{"1.2.3.4", 8091},
 		},
 	}, []Address{
-		{"1.2.3.4",  DefaultMemdPort},
+		{"1.2.3.4", DefaultMemdPort},
 	}, []Address{
 		{"1.2.3.4", DefaultHttpPort},
 	}, false, true, true)
 
-	cs := parseOrDie(t,"1.2.3.4:999")
+	cs := parseOrDie(t, "1.2.3.4:999")
 	_, err = Resolve(cs)
 	if err == nil {
 		t.Fatalf("Expected error with non-default port without scheme")
@@ -182,9 +182,9 @@ func TestParseHosts(t *testing.T) {
 			{"baz.com", -1},
 		},
 	}, []Address{
-		{"foo.com",  DefaultMemdPort},
-		{"bar.com",  DefaultMemdPort},
-		{"baz.com",  DefaultMemdPort},
+		{"foo.com", DefaultMemdPort},
+		{"bar.com", DefaultMemdPort},
+		{"baz.com", DefaultMemdPort},
 	}, []Address{
 		{"foo.com", DefaultHttpPort},
 		{"bar.com", DefaultHttpPort},
@@ -204,7 +204,7 @@ func TestParseHosts(t *testing.T) {
 			{"foo.com", 4444},
 		},
 	}, []Address{
-		{"foo.com",  4444},
+		{"foo.com", 4444},
 	}, nil, false, true, true)
 
 	checkSpec(t, "couchbases://foo.com:4444", ConnSpec{
@@ -213,13 +213,13 @@ func TestParseHosts(t *testing.T) {
 			{"foo.com", 4444},
 		},
 	}, []Address{
-		{"foo.com",  4444},
-	}, nil, true,true,true)
+		{"foo.com", 4444},
+	}, nil, true, true, true)
 
 	checkSpec(t, "couchbases://", ConnSpec{
 		Scheme: "couchbases",
 	}, []Address{
-		{"127.0.0.1",  DefaultSslMemdPort},
+		{"127.0.0.1", DefaultSslMemdPort},
 	}, nil, true, true, true)
 
 	checkSpec(t, "couchbase://foo.com,bar.com:4444", ConnSpec{
@@ -229,10 +229,10 @@ func TestParseHosts(t *testing.T) {
 			{"bar.com", 4444},
 		},
 	}, []Address{
-		{"foo.com",  DefaultMemdPort},
+		{"foo.com", DefaultMemdPort},
 		{"bar.com", 4444},
 	}, []Address{
-		{"foo.com",  DefaultHttpPort},
+		{"foo.com", DefaultHttpPort},
 	}, false, true, true)
 
 	checkSpec(t, "couchbase://foo.com;bar.com;baz.com", ConnSpec{
@@ -243,11 +243,11 @@ func TestParseHosts(t *testing.T) {
 			{"baz.com", -1},
 		},
 	}, []Address{
-		{"foo.com",  DefaultMemdPort},
+		{"foo.com", DefaultMemdPort},
 		{"bar.com", DefaultMemdPort},
 		{"baz.com", DefaultMemdPort},
 	}, []Address{
-		{"foo.com",  DefaultHttpPort},
+		{"foo.com", DefaultHttpPort},
 		{"bar.com", DefaultHttpPort},
 		{"baz.com", DefaultHttpPort},
 	}, false, true, false)
@@ -260,7 +260,7 @@ func TestParseBucket(t *testing.T) {
 			{"foo.com", -1},
 		},
 		Bucket: "user",
-	}, nil, nil, false, false,false)
+	}, nil, nil, false, false, false)
 
 	checkSpec(t, "couchbase://foo.com/user/", ConnSpec{
 		Scheme: "couchbase",
@@ -268,32 +268,32 @@ func TestParseBucket(t *testing.T) {
 			{"foo.com", -1},
 		},
 		Bucket: "user/",
-	}, nil, nil, false, false,false)
+	}, nil, nil, false, false, false)
 
 	checkSpec(t, "couchbase:///default", ConnSpec{
 		Scheme: "couchbase",
 		Bucket: "default",
-	}, nil, nil, false, false,false)
+	}, nil, nil, false, false, false)
 
 	checkSpec(t, "couchbase:///default", ConnSpec{
 		Scheme: "couchbase",
 		Bucket: "default",
-	}, nil, nil, false, false,false)
+	}, nil, nil, false, false, false)
 
 	checkSpec(t, "couchbase:///default", ConnSpec{
 		Scheme: "couchbase",
 		Bucket: "default",
-	}, nil, nil, false, false,false)
+	}, nil, nil, false, false, false)
 
 	checkSpec(t, "couchbase:///default?", ConnSpec{
 		Scheme: "couchbase",
 		Bucket: "default",
-	}, nil, nil, false, false,false)
+	}, nil, nil, false, false, false)
 
 	checkSpec(t, "couchbase:///%2FUsers%2F?", ConnSpec{
 		Scheme: "couchbase",
 		Bucket: "/Users/",
-	}, nil, nil, false, false,false)
+	}, nil, nil, false, false, false)
 }
 
 func TestOptionsPassthrough(t *testing.T) {
@@ -302,14 +302,14 @@ func TestOptionsPassthrough(t *testing.T) {
 		Options: map[string][]string{
 			"foo": {"bar"},
 		},
-	}, nil, nil, false, false,false)
+	}, nil, nil, false, false, false)
 
 	checkSpec(t, "couchbase://?foo=bar", ConnSpec{
 		Scheme: "couchbase",
 		Options: map[string][]string{
 			"foo": {"bar"},
 		},
-	}, nil, nil, false, false,true)
+	}, nil, nil, false, false, true)
 
 	checkSpec(t, "couchbase://?foo=fooval&bar=barval", ConnSpec{
 		Scheme: "couchbase",
@@ -317,7 +317,7 @@ func TestOptionsPassthrough(t *testing.T) {
 			"foo": {"fooval"},
 			"bar": {"barval"},
 		},
-	}, nil, nil, false, false,false)
+	}, nil, nil, false, false, false)
 
 	checkSpec(t, "couchbase://?foo=fooval&bar=barval&", ConnSpec{
 		Scheme: "couchbase",
@@ -325,12 +325,12 @@ func TestOptionsPassthrough(t *testing.T) {
 			"foo": {"fooval"},
 			"bar": {"barval"},
 		},
-	}, nil, nil, false, false,false)
+	}, nil, nil, false, false, false)
 
 	checkSpec(t, "couchbase://?foo=val1&foo=val2&", ConnSpec{
 		Scheme: "couchbase",
 		Options: map[string][]string{
 			"foo": {"val1", "val2"},
 		},
-	}, nil, nil, false, false,false)
+	}, nil, nil, false, false, false)
 }

@@ -1,17 +1,17 @@
 package gocbconnstr
 
 import (
-	"net"
+	"errors"
 	"fmt"
+	"net"
 	"net/url"
 	"regexp"
 	"strconv"
-	"errors"
 )
 
 const (
-	DefaultHttpPort = 8091
-	DefaultMemdPort = 11210
+	DefaultHttpPort    = 8091
+	DefaultMemdPort    = 11210
 	DefaultSslMemdPort = 11207
 )
 
@@ -21,10 +21,10 @@ type Address struct {
 }
 
 type ConnSpec struct {
-	Scheme string
+	Scheme    string
 	Addresses []Address
-	Bucket string
-	Options map[string][]string
+	Bucket    string
+	Options   map[string][]string
 }
 
 func (spec ConnSpec) GetOption(name string) []string {
@@ -63,7 +63,7 @@ func Parse(connStr string) (out ConnSpec, err error) {
 	if parts[7] != "" {
 		hosts := hostMatcher.FindAllStringSubmatch(parts[7], -1)
 		for _, hostInfo := range hosts {
-			address := Address {
+			address := Address{
 				Host: hostInfo[1],
 				Port: -1,
 			}
@@ -129,11 +129,11 @@ func (spec ConnSpec) String() string {
 }
 
 type ResolvedConnSpec struct {
-	UseSsl bool
+	UseSsl    bool
 	MemdHosts []Address
 	HttpHosts []Address
-	Bucket string
-	Options map[string][]string
+	Bucket    string
+	Options   map[string][]string
 }
 
 func Resolve(connSpec ConnSpec) (out ResolvedConnSpec, err error) {
@@ -186,16 +186,16 @@ func Resolve(connSpec ConnSpec) (out ResolvedConnSpec, err error) {
 		}
 	} else if len(connSpec.Addresses) == 0 {
 		if useSsl {
-			out.MemdHosts = append(out.MemdHosts, Address {
+			out.MemdHosts = append(out.MemdHosts, Address{
 				Host: "127.0.0.1",
 				Port: DefaultSslMemdPort,
 			})
 		} else {
-			out.MemdHosts = append(out.MemdHosts, Address {
+			out.MemdHosts = append(out.MemdHosts, Address{
 				Host: "127.0.0.1",
 				Port: DefaultMemdPort,
 			})
-			out.HttpHosts = append(out.HttpHosts, Address {
+			out.HttpHosts = append(out.HttpHosts, Address{
 				Host: "127.0.0.1",
 				Port: DefaultHttpPort,
 			})
@@ -216,28 +216,28 @@ func Resolve(connSpec ConnSpec) (out ResolvedConnSpec, err error) {
 
 			if address.Port <= 0 || address.Port == defaultPort || address.Port == DefaultHttpPort {
 				if useSsl {
-					out.MemdHosts = append(out.MemdHosts, Address {
+					out.MemdHosts = append(out.MemdHosts, Address{
 						Host: address.Host,
 						Port: DefaultSslMemdPort,
 					})
 				} else {
-					out.MemdHosts = append(out.MemdHosts, Address {
+					out.MemdHosts = append(out.MemdHosts, Address{
 						Host: address.Host,
 						Port: DefaultMemdPort,
 					})
-					out.HttpHosts = append(out.HttpHosts, Address {
+					out.HttpHosts = append(out.HttpHosts, Address{
 						Host: address.Host,
 						Port: DefaultHttpPort,
 					})
 				}
 			} else {
 				if !isHttpScheme {
-					out.MemdHosts = append(out.MemdHosts, Address {
+					out.MemdHosts = append(out.MemdHosts, Address{
 						Host: address.Host,
 						Port: address.Port,
 					})
 				} else {
-					out.HttpHosts = append(out.HttpHosts, Address {
+					out.HttpHosts = append(out.HttpHosts, Address{
 						Host: address.Host,
 						Port: address.Port,
 					})
