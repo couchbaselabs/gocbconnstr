@@ -44,7 +44,7 @@ func (spec ConnSpec) GetOptionString(name string) string {
 
 func Parse(connStr string) (out ConnSpec, err error) {
 	partMatcher := regexp.MustCompile(`((.*):\/\/)?(([^\/?:]*)(:([^\/?:@]*))?@)?([^\/?]*)(\/([^\?]*))?(\?(.*))?`)
-	hostMatcher := regexp.MustCompile(`([^;\,\:]+)(:([0-9]*))?(;\,)?`)
+	hostMatcher := regexp.MustCompile(`((\[[^\]]+\]+)|([^;\,\:]+))(:([0-9]*))?(;\,)?`)
 	parts := partMatcher.FindStringSubmatch(connStr)
 
 	if parts[2] != "" {
@@ -68,8 +68,8 @@ func Parse(connStr string) (out ConnSpec, err error) {
 				Port: -1,
 			}
 
-			if hostInfo[3] != "" {
-				address.Port, err = strconv.Atoi(hostInfo[3])
+			if hostInfo[5] != "" {
+				address.Port, err = strconv.Atoi(hostInfo[5])
 				if err != nil {
 					return
 				}

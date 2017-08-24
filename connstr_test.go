@@ -125,6 +125,16 @@ func TestParseBasic(t *testing.T) {
 		{"1.2.3.4", DefaultHttpPort},
 	}, false, true, true)
 
+	checkSpec(t, "couchbase://[2001:4860:4860::8888]", ConnSpec{
+		Scheme: "couchbase",
+		Addresses: []Address{
+			{"[2001:4860:4860::8888]", -1}},
+	}, []Address{
+		{"[2001:4860:4860::8888]", DefaultMemdPort},
+	}, []Address{
+		{"[2001:4860:4860::8888]", DefaultHttpPort},
+	}, false, true, true)
+
 	_, err := Parse("blah://foo.com")
 	if err == nil {
 		t.Fatalf("Expected error for bad scheme")
@@ -154,6 +164,15 @@ func TestParseBasic(t *testing.T) {
 		{"1.2.3.4", DefaultMemdPort},
 	}, []Address{
 		{"1.2.3.4", DefaultHttpPort},
+	}, false, true, true)
+
+	checkSpec(t, "[2001:4860:4860::8888]", ConnSpec{
+		Addresses: []Address{
+			{"[2001:4860:4860::8888]", -1}},
+	}, []Address{
+		{"[2001:4860:4860::8888]", DefaultMemdPort},
+	}, []Address{
+		{"[2001:4860:4860::8888]", DefaultHttpPort},
 	}, false, true, true)
 
 	checkSpec(t, "1.2.3.4:8091", ConnSpec{
@@ -189,6 +208,19 @@ func TestParseHosts(t *testing.T) {
 		{"foo.com", DefaultHttpPort},
 		{"bar.com", DefaultHttpPort},
 		{"baz.com", DefaultHttpPort},
+	}, false, true, true)
+
+	checkSpec(t, "couchbase://[2001:4860:4860::8822],[2001:4860:4860::8833]:888", ConnSpec{
+		Scheme: "couchbase",
+		Addresses: []Address{
+			{"[2001:4860:4860::8822]", -1},
+			{"[2001:4860:4860::8833]", 888},
+		},
+	}, []Address{
+		{"[2001:4860:4860::8822]", DefaultMemdPort},
+		{"[2001:4860:4860::8833]", 888},
+	}, []Address{
+		{"[2001:4860:4860::8822]", DefaultHttpPort},
 	}, false, true, true)
 
 	// Parse using legacy format
