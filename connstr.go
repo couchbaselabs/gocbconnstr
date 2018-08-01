@@ -27,6 +27,20 @@ type ConnSpec struct {
 	Options   map[string][]string
 }
 
+func (spec ConnSpec) SrvRecordName() (recordName string) {
+	// Only `couchbase`-type schemes allow SRV records
+	if spec.Scheme != "couchbase" && spec.Scheme != "couchbases" {
+		return ""
+	}
+
+	// Must have only a single host, with no port specified
+	if len(spec.Addresses) != 1 || spec.Addresses[0].Port != 0 {
+		return ""
+	}
+
+	return fmt.Sprintf("_%s._tcp.%s", spec.Scheme, spec.Addresses[0].Host)
+}
+
 func (spec ConnSpec) GetOption(name string) []string {
 	if opt, ok := spec.Options[name]; ok {
 		return opt
