@@ -11,6 +11,7 @@ import (
 
 const (
 	DefaultHttpPort    = 8091
+	DefaultSslHttpPort = 18091
 	DefaultMemdPort    = 11210
 	DefaultSslMemdPort = 11207
 )
@@ -204,6 +205,10 @@ func Resolve(connSpec ConnSpec) (out ResolvedConnSpec, err error) {
 				Host: "127.0.0.1",
 				Port: DefaultSslMemdPort,
 			})
+			out.HttpHosts = append(out.HttpHosts, Address{
+				Host: "127.0.0.1",
+				Port: DefaultSslHttpPort,
+			})
 		} else {
 			out.MemdHosts = append(out.MemdHosts, Address{
 				Host: "127.0.0.1",
@@ -233,6 +238,10 @@ func Resolve(connSpec ConnSpec) (out ResolvedConnSpec, err error) {
 					out.MemdHosts = append(out.MemdHosts, Address{
 						Host: address.Host,
 						Port: DefaultSslMemdPort,
+					})
+					out.HttpHosts = append(out.HttpHosts, Address{
+						Host: address.Host,
+						Port: DefaultSslHttpPort,
 					})
 				} else {
 					out.MemdHosts = append(out.MemdHosts, Address{

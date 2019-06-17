@@ -246,13 +246,17 @@ func TestParseHosts(t *testing.T) {
 		},
 	}, []Address{
 		{"foo.com", 4444},
-	}, nil, true, true, true)
+	}, []Address{
+		{"foo.com", 4444},
+	}, true, true, true)
 
 	checkSpec(t, "couchbases://", ConnSpec{
 		Scheme: "couchbases",
 	}, []Address{
 		{"127.0.0.1", DefaultSslMemdPort},
-	}, nil, true, true, true)
+	},  []Address{
+		{"127.0.0.1", DefaultSslHttpPort},
+	}, true, true, true)
 
 	checkSpec(t, "couchbase://foo.com,bar.com:4444", ConnSpec{
 		Scheme: "couchbase",
