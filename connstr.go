@@ -48,7 +48,7 @@ func (spec ConnSpec) srvRecord() (string, string, string, bool) {
 	}
 
 	// Must have only a single host, with no port specified
-	if len(spec.Addresses) != 1 || spec.Addresses[0].Port != 0 {
+	if len(spec.Addresses) != 1 || spec.Addresses[0].Port != -1 {
 		return "", "", "", false
 	}
 
@@ -56,7 +56,7 @@ func (spec ConnSpec) srvRecord() (string, string, string, bool) {
 		return "", "", "", false
 	}
 
-	return spec.Scheme, "_tcp", spec.Addresses[0].Host, true
+	return spec.Scheme, "tcp", spec.Addresses[0].Host, true
 }
 
 func (spec ConnSpec) SrvRecordName() (recordName string) {
@@ -65,7 +65,7 @@ func (spec ConnSpec) SrvRecordName() (recordName string) {
 		return ""
 	}
 
-	return fmt.Sprintf("_%s.%s.%s", scheme, proto, host)
+	return fmt.Sprintf("_%s._%s.%s", scheme, proto, host)
 }
 
 func (spec ConnSpec) GetOption(name string) []string {
