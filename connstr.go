@@ -221,7 +221,7 @@ func Resolve(connSpec ConnSpec) (out ResolvedConnSpec, err error) {
 	if srvRecords != nil {
 		for _, srv := range srvRecords {
 			out.MemdHosts = append(out.MemdHosts, Address{
-				Host: srv.Target,
+				Host: strings.TrimSuffix(srv.Target, "."),
 				Port: int(srv.Port),
 			})
 		}
