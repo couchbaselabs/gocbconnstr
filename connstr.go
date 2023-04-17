@@ -205,7 +205,15 @@ type ResolvedConnSpec struct {
 	HttpHosts    []Address
 	NSServerHost *Address
 	Bucket       string
+	SrvRecord    *SrvRecord
 	Options      map[string][]string
+}
+
+// SrvRecord contains the information about the srv record used to extract addresses.
+type SrvRecord struct {
+	Proto  string
+	Scheme string
+	Host   string
 }
 
 // Resolve parses a ConnSpec into a ResolvedConnSpec.
@@ -266,6 +274,11 @@ func Resolve(connSpec ConnSpec) (out ResolvedConnSpec, err error) {
 				Host: strings.TrimSuffix(srv.Target, "."),
 				Port: int(srv.Port),
 			})
+		}
+		out.SrvRecord = &SrvRecord{
+			Host:   srvHost,
+			Proto:  srvProto,
+			Scheme: srvScheme,
 		}
 	} else if len(connSpec.Addresses) == 0 {
 		if scheme == nsServerScheme {
