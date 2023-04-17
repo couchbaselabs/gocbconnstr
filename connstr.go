@@ -17,6 +17,12 @@ const (
 	DefaultSslMemdPort = 11207
 )
 
+const (
+	couchbaseScheme = iota + 1
+	httpScheme
+	nsServerScheme
+)
+
 func hostIsIpAddress(host string) bool {
 	if strings.HasPrefix(host, "[") {
 		// This is an IPv6 address
@@ -87,6 +93,7 @@ func Parse(connStr string) (out ConnSpec, err error) {
 	partMatcher := regexp.MustCompile(`((.*):\/\/)?(([^\/?:]*)(:([^\/?:@]*))?@)?([^\/?]*)(\/([^\?]*))?(\?(.*))?`)
 	hostMatcher := regexp.MustCompile(`((\[[^\]]+\]+)|([^;\,\:]+))(:([0-9]*))?(;\,)?`)
 	parts := partMatcher.FindStringSubmatch(connStr)
+	var onlyAllowSingleHost bool
 
 	if parts[2] != "" {
 		out.Scheme = parts[2]
@@ -95,6 +102,10 @@ func Parse(connStr string) (out ConnSpec, err error) {
 		case "couchbase":
 		case "couchbases":
 		case "http":
+		case "ns_server":
+			onlyAllowSingleHost = true
+		case "ns_servers":
+			onlyAllowSingleHost = true
 		default:
 			err = errors.New("bad scheme")
 			return
@@ -103,6 +114,11 @@ func Parse(connStr string) (out ConnSpec, err error) {
 
 	if parts[7] != "" {
 		hosts := hostMatcher.FindAllStringSubmatch(parts[7], -1)
+		if len(hosts) > 1 && onlyAllowSingleHost {
+			err = errors.New("ns_server schemes can only be used with a single host")
+			return
+		}
+
 		for _, hostInfo := range hosts {
 			address := Address{
 				Host: hostInfo[1],
@@ -170,39 +186,50 @@ func (spec ConnSpec) String() string {
 }
 
 type ResolvedConnSpec struct {
-	UseSsl    bool
-	MemdHosts []Address
-	HttpHosts []Address
-	Bucket    string
-	Options   map[string][]string
+	UseSsl       bool
+	MemdHosts    []Address
+	HttpHosts    []Address
+	NSServerHost *Address
+	Bucket       string
+	Options      map[string][]string
 }
 
 func Resolve(connSpec ConnSpec) (out ResolvedConnSpec, err error) {
 	defaultPort := 0
 	hasExplicitScheme := false
-	isHttpScheme := false
+	var scheme int
 	useSsl := false
 
 	switch connSpec.Scheme {
 	case "couchbase":
 		defaultPort = DefaultMemdPort
 		hasExplicitScheme = true
-		isHttpScheme = false
+		scheme = couchbaseScheme
 		useSsl = false
 	case "couchbases":
 		defaultPort = DefaultSslMemdPort
 		hasExplicitScheme = true
-		isHttpScheme = false
+		scheme = couchbaseScheme
 		useSsl = true
 	case "http":
 		defaultPort = DefaultHttpPort
 		hasExplicitScheme = true
-		isHttpScheme = true
+		scheme = httpScheme
 		useSsl = false
+	case "ns_server":
+		defaultPort = DefaultHttpPort
+		hasExplicitScheme = true
+		scheme = nsServerScheme
+		useSsl = true
+	case "ns_servers":
+		defaultPort = DefaultHttpPort
+		hasExplicitScheme = true
+		scheme = nsServerScheme
+		useSsl = true
 	case "":
 		defaultPort = DefaultHttpPort
 		hasExplicitScheme = false
-		isHttpScheme = true
+		scheme = httpScheme
 		useSsl = false
 	default:
 		err = errors.New("bad scheme")
@@ -226,70 +253,90 @@ func Resolve(connSpec ConnSpec) (out ResolvedConnSpec, err error) {
 			})
 		}
 	} else if len(connSpec.Addresses) == 0 {
-		if useSsl {
-			out.MemdHosts = append(out.MemdHosts, Address{
-				Host: "127.0.0.1",
-				Port: DefaultSslMemdPort,
-			})
-			out.HttpHosts = append(out.HttpHosts, Address{
-				Host: "127.0.0.1",
-				Port: DefaultSslHttpPort,
-			})
-		} else {
-			out.MemdHosts = append(out.MemdHosts, Address{
-				Host: "127.0.0.1",
-				Port: DefaultMemdPort,
-			})
-			out.HttpHosts = append(out.HttpHosts, Address{
+		if scheme == nsServerScheme {
+			out.NSServerHost = &Address{
 				Host: "127.0.0.1",
 				Port: DefaultHttpPort,
-			})
+			}
+		} else {
+			if useSsl {
+				out.MemdHosts = append(out.MemdHosts, Address{
+					Host: "127.0.0.1",
+					Port: DefaultSslMemdPort,
+				})
+				out.HttpHosts = append(out.HttpHosts, Address{
+					Host: "127.0.0.1",
+					Port: DefaultSslHttpPort,
+				})
+			} else {
+				out.MemdHosts = append(out.MemdHosts, Address{
+					Host: "127.0.0.1",
+					Port: DefaultMemdPort,
+				})
+				out.HttpHosts = append(out.HttpHosts, Address{
+					Host: "127.0.0.1",
+					Port: DefaultHttpPort,
+				})
+			}
 		}
 	} else {
 		for _, address := range connSpec.Addresses {
 			hasExplicitPort := address.Port > 0
 
 			if !hasExplicitScheme && hasExplicitPort && address.Port != defaultPort {
-				err = errors.New("Ambiguous port without scheme")
+				err = errors.New("ambiguous port without scheme")
 				return
 			}
 
-			if hasExplicitScheme && !isHttpScheme && address.Port == DefaultHttpPort {
+			if hasExplicitScheme && scheme == couchbaseScheme && address.Port == DefaultHttpPort {
 				err = errors.New("couchbase://host:8091 not supported for couchbase:// scheme. Use couchbase://host")
 				return
 			}
 
 			if address.Port <= 0 || address.Port == defaultPort || address.Port == DefaultHttpPort {
-				if useSsl {
-					out.MemdHosts = append(out.MemdHosts, Address{
-						Host: address.Host,
-						Port: DefaultSslMemdPort,
-					})
-					out.HttpHosts = append(out.HttpHosts, Address{
-						Host: address.Host,
-						Port: DefaultSslHttpPort,
-					})
-				} else {
-					out.MemdHosts = append(out.MemdHosts, Address{
-						Host: address.Host,
-						Port: DefaultMemdPort,
-					})
-					out.HttpHosts = append(out.HttpHosts, Address{
+				if scheme == nsServerScheme {
+					out.NSServerHost = &Address{
 						Host: address.Host,
 						Port: DefaultHttpPort,
-					})
+					}
+				} else {
+					if useSsl {
+						out.MemdHosts = append(out.MemdHosts, Address{
+							Host: address.Host,
+							Port: DefaultSslMemdPort,
+						})
+						out.HttpHosts = append(out.HttpHosts, Address{
+							Host: address.Host,
+							Port: DefaultSslHttpPort,
+						})
+					} else {
+						out.MemdHosts = append(out.MemdHosts, Address{
+							Host: address.Host,
+							Port: DefaultMemdPort,
+						})
+						out.HttpHosts = append(out.HttpHosts, Address{
+							Host: address.Host,
+							Port: DefaultHttpPort,
+						})
+					}
 				}
 			} else {
-				if !isHttpScheme {
+				switch scheme {
+				case couchbaseScheme:
 					out.MemdHosts = append(out.MemdHosts, Address{
 						Host: address.Host,
 						Port: address.Port,
 					})
-				} else {
+				case httpScheme:
 					out.HttpHosts = append(out.HttpHosts, Address{
 						Host: address.Host,
 						Port: address.Port,
 					})
+				case nsServerScheme:
+					out.NSServerHost = &Address{
+						Host: address.Host,
+						Port: address.Port,
+					}
 				}
 			}
 		}
