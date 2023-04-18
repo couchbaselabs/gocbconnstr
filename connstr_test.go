@@ -404,11 +404,6 @@ func TestParseNSServer(t *testing.T) {
 		"1.2.3.4", 1234,
 	}, true, true, true)
 
-	_, err := Parse("ns_server://1.2.3.4,1.2.3.5")
-	if err == nil {
-		t.Fatalf("Parse should fail for more than 1 address with ns_server scheme")
-	}
-
 	checkSpec(t, "ns_server://1.2.3.4:8091", ConnSpec{
 		Scheme: "ns_server",
 		Addresses: []Address{

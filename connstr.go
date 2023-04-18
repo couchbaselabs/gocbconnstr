@@ -106,7 +106,6 @@ func Parse(connStr string) (out ConnSpec, err error) {
 	partMatcher := regexp.MustCompile(`((.*):\/\/)?(([^\/?:]*)(:([^\/?:@]*))?@)?([^\/?]*)(\/([^\?]*))?(\?(.*))?`)
 	hostMatcher := regexp.MustCompile(`((\[[^\]]+\]+)|([^;\,\:]+))(:([0-9]*))?(;\,)?`)
 	parts := partMatcher.FindStringSubmatch(connStr)
-	var onlyAllowSingleHost bool
 
 	if parts[2] != "" {
 		out.Scheme = parts[2]
@@ -116,9 +115,7 @@ func Parse(connStr string) (out ConnSpec, err error) {
 		case "couchbases":
 		case "http":
 		case "ns_server":
-			onlyAllowSingleHost = true
 		case "ns_servers":
-			onlyAllowSingleHost = true
 		default:
 			err = errors.New("bad scheme")
 			return
@@ -127,11 +124,6 @@ func Parse(connStr string) (out ConnSpec, err error) {
 
 	if parts[7] != "" {
 		hosts := hostMatcher.FindAllStringSubmatch(parts[7], -1)
-		if len(hosts) > 1 && onlyAllowSingleHost {
-			err = errors.New("ns_server schemes can only be used with a single host")
-			return
-		}
-
 		for _, hostInfo := range hosts {
 			address := Address{
 				Host: hostInfo[1],
@@ -308,6 +300,10 @@ func Resolve(connSpec ConnSpec) (out ResolvedConnSpec, err error) {
 			}
 		}
 	} else {
+		if scheme == nsServerScheme && len(connSpec.Addresses) > 1 {
+			err = errors.New("ns_server schemes can only be used with a single host")
+			return
+		}
 		for _, address := range connSpec.Addresses {
 			hasExplicitPort := address.Port > 0
 
