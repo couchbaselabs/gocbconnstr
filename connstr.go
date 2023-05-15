@@ -109,17 +109,6 @@ func Parse(connStr string) (out ConnSpec, err error) {
 
 	if parts[2] != "" {
 		out.Scheme = parts[2]
-
-		switch out.Scheme {
-		case "couchbase":
-		case "couchbases":
-		case "http":
-		case "ns_server":
-		case "ns_servers":
-		default:
-			err = errors.New("bad scheme")
-			return
-		}
 	}
 
 	if parts[7] != "" {
