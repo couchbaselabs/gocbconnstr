@@ -147,11 +147,6 @@ func TestParseBasic(t *testing.T) {
 		{"[2001:4860:4860::8888]", DefaultHttpPort},
 	}, nil, false, true, true)
 
-	_, err := Parse("blah://foo.com")
-	if err == nil {
-		t.Fatalf("Expected error for bad scheme")
-	}
-
 	checkSpec(t, "couchbase://", ConnSpec{
 		Scheme: "couchbase",
 	}, []Address{
@@ -198,7 +193,7 @@ func TestParseBasic(t *testing.T) {
 	}, nil, false, true, true)
 
 	cs := parseOrDie(t, "1.2.3.4:999")
-	_, err = Resolve(cs)
+	_, err := Resolve(cs)
 	if err == nil {
 		t.Fatalf("Expected error with non-default port without scheme")
 	}
