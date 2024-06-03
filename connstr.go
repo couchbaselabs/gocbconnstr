@@ -22,12 +22,16 @@ const (
 
 	// DefaultSslMemdPort is the default memd SSL port to use to connect to Couchbase Server.
 	DefaultSslMemdPort = 11207
+
+	// DefaultCouchbase2Port is the default (SSL) port to use to connect with Couchbase2.
+	DefaultCouchbase2Port = 18098
 )
 
 const (
 	couchbaseScheme = iota + 1
 	httpScheme
 	nsServerScheme
+	couchbase2Scheme
 )
 
 func hostIsIpAddress(host string) bool {
@@ -181,13 +185,14 @@ func (spec ConnSpec) String() string {
 
 // ResolvedConnSpec is the result of resolving a ConnSpec.
 type ResolvedConnSpec struct {
-	UseSsl       bool
-	MemdHosts    []Address
-	HttpHosts    []Address
-	NSServerHost *Address
-	Bucket       string
-	SrvRecord    *SrvRecord
-	Options      map[string][]string
+	UseSsl         bool
+	MemdHosts      []Address
+	HttpHosts      []Address
+	NSServerHost   *Address
+	Couchbase2Host *Address
+	Bucket         string
+	SrvRecord      *SrvRecord
+	Options        map[string][]string
 }
 
 // SrvRecord contains the information about the srv record used to extract addresses.
@@ -198,7 +203,7 @@ type SrvRecord struct {
 }
 
 // Resolve parses a ConnSpec into a ResolvedConnSpec.
-func Resolve(connSpec ConnSpec) (out ResolvedConnSpec, err error) {
+func Resolve(connSpec ConnSpec) (ResolvedConnSpec, error) {
 	defaultPort := 0
 	hasExplicitScheme := false
 	var scheme int
@@ -221,23 +226,18 @@ func Resolve(connSpec ConnSpec) (out ResolvedConnSpec, err error) {
 		scheme = httpScheme
 		useSsl = false
 	case "ns_server":
-		defaultPort = DefaultHttpPort
-		hasExplicitScheme = true
-		scheme = nsServerScheme
-		useSsl = true
+		return handleNsServerScheme(connSpec)
 	case "ns_servers":
-		defaultPort = DefaultHttpPort
-		hasExplicitScheme = true
-		scheme = nsServerScheme
-		useSsl = true
+		return handleNsServerScheme(connSpec)
+	case "couchbase2":
+		return handleCouchbase2Scheme(connSpec)
 	case "":
 		defaultPort = DefaultHttpPort
 		hasExplicitScheme = false
 		scheme = httpScheme
 		useSsl = false
 	default:
-		err = errors.New("bad scheme")
-		return
+		return ResolvedConnSpec{}, errors.New("bad scheme")
 	}
 
 	var srvRecords []*net.SRV
@@ -249,6 +249,11 @@ func Resolve(connSpec ConnSpec) (out ResolvedConnSpec, err error) {
 		}
 	}
 
+	out := ResolvedConnSpec{}
+	out.UseSsl = useSsl
+	out.Bucket = connSpec.Bucket
+	out.Options = connSpec.Options
+
 	if srvRecords != nil {
 		for _, srv := range srvRecords {
 			out.MemdHosts = append(out.MemdHosts, Address{
@@ -256,107 +261,123 @@ func Resolve(connSpec ConnSpec) (out ResolvedConnSpec, err error) {
 				Port: int(srv.Port),
 			})
 		}
-		out.SrvRecord = &SrvRecord{
-			Host:   srvHost,
-			Proto:  srvProto,
-			Scheme: srvScheme,
+		return out, nil
+	}
+
+	if len(connSpec.Addresses) == 0 {
+		appendMemdAndHttpHostsWithDefaultPorts(&out, useSsl, "127.0.0.1")
+		return out, nil
+	}
+
+	for _, address := range connSpec.Addresses {
+		hasExplicitPort := address.Port > 0
+
+		if !hasExplicitScheme && hasExplicitPort && address.Port != defaultPort {
+			return ResolvedConnSpec{}, errors.New("ambiguous port without scheme")
 		}
-	} else if len(connSpec.Addresses) == 0 {
-		if scheme == nsServerScheme {
-			out.NSServerHost = &Address{
-				Host: "127.0.0.1",
-				Port: DefaultHttpPort,
-			}
+
+		if hasExplicitScheme && scheme == couchbaseScheme && address.Port == DefaultHttpPort {
+			return ResolvedConnSpec{}, errors.New("couchbase://host:8091 not supported for couchbase:// scheme. Use couchbase://host")
+		}
+
+		if isDefaultOrNoPortOrDefaultHttpPort(address.Port, defaultPort) {
+			appendMemdAndHttpHostsWithDefaultPorts(&out, useSsl, address.Host)
 		} else {
-			if useSsl {
-				out.MemdHosts = append(out.MemdHosts, Address{
-					Host: "127.0.0.1",
-					Port: DefaultSslMemdPort,
-				})
-				out.HttpHosts = append(out.HttpHosts, Address{
-					Host: "127.0.0.1",
-					Port: DefaultSslHttpPort,
-				})
-			} else {
-				out.MemdHosts = append(out.MemdHosts, Address{
-					Host: "127.0.0.1",
-					Port: DefaultMemdPort,
-				})
-				out.HttpHosts = append(out.HttpHosts, Address{
-					Host: "127.0.0.1",
-					Port: DefaultHttpPort,
-				})
-			}
-		}
-	} else {
-		if scheme == nsServerScheme && len(connSpec.Addresses) > 1 {
-			err = errors.New("ns_server schemes can only be used with a single host")
-			return
-		}
-		for _, address := range connSpec.Addresses {
-			hasExplicitPort := address.Port > 0
-
-			if !hasExplicitScheme && hasExplicitPort && address.Port != defaultPort {
-				err = errors.New("ambiguous port without scheme")
-				return
-			}
-
-			if hasExplicitScheme && scheme == couchbaseScheme && address.Port == DefaultHttpPort {
-				err = errors.New("couchbase://host:8091 not supported for couchbase:// scheme. Use couchbase://host")
-				return
-			}
-
-			if address.Port <= 0 || address.Port == defaultPort || address.Port == DefaultHttpPort {
-				if scheme == nsServerScheme {
-					out.NSServerHost = &Address{
-						Host: address.Host,
-						Port: DefaultHttpPort,
-					}
-				} else {
-					if useSsl {
-						out.MemdHosts = append(out.MemdHosts, Address{
-							Host: address.Host,
-							Port: DefaultSslMemdPort,
-						})
-						out.HttpHosts = append(out.HttpHosts, Address{
-							Host: address.Host,
-							Port: DefaultSslHttpPort,
-						})
-					} else {
-						out.MemdHosts = append(out.MemdHosts, Address{
-							Host: address.Host,
-							Port: DefaultMemdPort,
-						})
-						out.HttpHosts = append(out.HttpHosts, Address{
-							Host: address.Host,
-							Port: DefaultHttpPort,
-						})
-					}
-				}
-			} else {
-				switch scheme {
-				case couchbaseScheme:
-					out.MemdHosts = append(out.MemdHosts, Address{
-						Host: address.Host,
-						Port: address.Port,
-					})
-				case httpScheme:
-					out.HttpHosts = append(out.HttpHosts, Address{
-						Host: address.Host,
-						Port: address.Port,
-					})
-				case nsServerScheme:
-					out.NSServerHost = &Address{
-						Host: address.Host,
-						Port: address.Port,
-					}
-				}
+			switch scheme {
+			case couchbaseScheme:
+				out.MemdHosts = append(out.MemdHosts, makeAddress(address.Host, address.Port))
+			case httpScheme:
+				out.HttpHosts = append(out.HttpHosts, makeAddress(address.Host, address.Port))
 			}
 		}
 	}
 
-	out.UseSsl = useSsl
+	return out, nil
+}
+
+func handleCouchbase2Scheme(connSpec ConnSpec) (ResolvedConnSpec, error) {
+	out := ResolvedConnSpec{}
+	out.UseSsl = true
 	out.Bucket = connSpec.Bucket
 	out.Options = connSpec.Options
-	return
+
+	if connSpec.Bucket != "" {
+		return ResolvedConnSpec{}, errors.New("couchbase2 scheme cannot only be used with bucket option")
+	}
+
+	if len(connSpec.Addresses) > 1 {
+		return ResolvedConnSpec{}, errors.New("couchbase2 scheme can only be used with a single host")
+	}
+
+	if len(connSpec.Addresses) == 0 {
+		return populateCouchbase2Host(&out, "127.0.0.1"), nil
+	}
+
+	address := connSpec.Addresses[0]
+	if address.Port <= 0 || address.Port == DefaultCouchbase2Port {
+		return populateCouchbase2Host(&out, address.Host), nil
+	}
+
+	a := makeAddress(address.Host, address.Port)
+	out.Couchbase2Host = &a
+	return out, nil
+}
+
+func populateCouchbase2Host(out *ResolvedConnSpec, address string) ResolvedConnSpec {
+	addr := makeAddress(address, DefaultCouchbase2Port)
+	out.Couchbase2Host = &addr
+
+	return *out
+}
+
+func handleNsServerScheme(connSpec ConnSpec) (ResolvedConnSpec, error) {
+	out := ResolvedConnSpec{}
+	out.UseSsl = true
+	out.Bucket = connSpec.Bucket
+	out.Options = connSpec.Options
+
+	if len(connSpec.Addresses) > 1 {
+		return ResolvedConnSpec{}, errors.New("ns_server schemes can only be used with a single host")
+	}
+
+	if len(connSpec.Addresses) == 0 {
+		return populateNsServerHost(&out, "127.0.0.1"), nil
+	}
+
+	address := connSpec.Addresses[0]
+	if isDefaultOrNoPortOrDefaultHttpPort(address.Port, DefaultHttpPort) {
+		return populateNsServerHost(&out, address.Host), nil
+	}
+
+	a := makeAddress(address.Host, address.Port)
+	out.NSServerHost = &a
+	return out, nil
+}
+
+func populateNsServerHost(out *ResolvedConnSpec, address string) ResolvedConnSpec {
+	addr := makeAddress(address, DefaultHttpPort)
+	out.NSServerHost = &addr
+
+	return *out
+}
+
+func appendMemdAndHttpHostsWithDefaultPorts(out *ResolvedConnSpec, useSsl bool, addr string) {
+	if useSsl {
+		out.MemdHosts = append(out.MemdHosts, makeAddress(addr, DefaultSslMemdPort))
+		out.HttpHosts = append(out.HttpHosts, makeAddress(addr, DefaultSslHttpPort))
+	} else {
+		out.MemdHosts = append(out.MemdHosts, makeAddress(addr, DefaultMemdPort))
+		out.HttpHosts = append(out.HttpHosts, makeAddress(addr, DefaultHttpPort))
+	}
+}
+
+func makeAddress(host string, port int) Address {
+	return Address{
+		Host: host,
+		Port: port,
+	}
+}
+
+func isDefaultOrNoPortOrDefaultHttpPort(port int, defaultPort int) bool {
+	return port <= 0 || port == defaultPort || port == DefaultHttpPort
 }
