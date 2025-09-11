@@ -302,7 +302,7 @@ func handleCouchbase2Scheme(connSpec ConnSpec) (ResolvedConnSpec, error) {
 	out.Options = connSpec.Options
 
 	if connSpec.Bucket != "" {
-		return ResolvedConnSpec{}, errors.New("couchbase2 scheme cannot only be used with bucket option")
+		return ResolvedConnSpec{}, errors.New("couchbase2 scheme cannot be used with bucket option")
 	}
 
 	if len(connSpec.Addresses) > 1 {
